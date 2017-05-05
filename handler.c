@@ -572,26 +572,26 @@ int duti_default_app_for_extension(char *ext) {
     return rc;
   }
 
-	cf_uti = UTTypeCreatePreferredIdentifierForTag( kUTTagClassFilenameExtension, cf_ext, NULL );
-	if ( cf_uti == NULL ) {
-		fprintf( stderr, "Failed to get default application for extension \'%s\'\n", rext );
-		goto duti_extension_cleanup;
-	}
-	cf_app_url = UTTypeCopyDeclaringBundleURL( cf_uti );
-	if ( cf_app_url == NULL ) {
-		fprintf( stderr, "Failed to get default application for extension \'%s\'\n", rext );
-		goto duti_extension_cleanup;
-	}
-  if ( !CFURLCopyResourcePropertyForKey( cf_app_url, kCFURLLocalizedNameKey, &cf_app_name, &cf_error )) {
-		cf_error_description = CFErrorCopyDescription( cf_error );
-		if ( cf_error_description != NULL ) {
-			if ( cf2c( cf_error_description, tmp, sizeof( tmp )) != 0 ) {
-				goto duti_extension_cleanup;
-			}
-			fprintf( stderr, "Failed to get display name: %s\n", tmp );
-		}
-		goto duti_extension_cleanup;
-	}
+  cf_uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, cf_ext, NULL);
+  if (cf_uti == NULL) {
+    fprintf(stderr, "Failed to get default application for extension \'%s\'\n", rext);
+    goto duti_extension_cleanup;
+  }
+  cf_app_url = UTTypeCopyDeclaringBundleURL(cf_uti);
+  if (cf_app_url == NULL) {
+    fprintf(stderr, "Failed to get default application for extension \'%s\'\n", rext);
+    goto duti_extension_cleanup;
+  }
+  if (!CFURLCopyResourcePropertyForKey(cf_app_url, kCFURLLocalizedNameKey, &cf_app_name, &cf_error)) {
+    cf_error_description = CFErrorCopyDescription(cf_error);
+    if (cf_error_description != NULL) {
+      if (cf2c(cf_error_description, tmp, sizeof(tmp)) != 0) {
+        goto duti_extension_cleanup;
+      }
+      fprintf(stderr, "Failed to get display name: %s\n", tmp);
+    }
+    goto duti_extension_cleanup;
+  }
   if (cf2c(cf_app_name, tmp, sizeof(tmp)) != 0) {
     goto duti_extension_cleanup;
   }
@@ -627,7 +627,7 @@ duti_extension_cleanup:
     CFRelease(cf_ext);
   }
   if (cf_uti != NULL) {
-    CFRelease( cf_uti );
+    CFRelease(cf_uti);
   if (cf_app_url != NULL) {
     CFRelease(cf_app_url);
   }
@@ -644,6 +644,56 @@ duti_extension_cleanup:
   return rc;
 }
 
+duti_default_app_for_type(char *osType) {
+  union {
+    OSType		typeAsOSType;
+    char		typeAsString[4];
+  }				u;
+  CFStringRef		cf_type = NULL;
+  CFArrayRef		cf_array = NULL;
+  CFStringRef		cf_uti_description = NULL;
+  CFDictionaryRef	cf_uti_declaration = NULL;
+  CFIndex			index;
+  CFIndex			count;
+  char			tmp[ MAXPATHLEN ];
+    int				rc = 2;
+
+  u.typeAsOSType = 0;
+  strncpy(u.typeAsString, osType, sizeof(u.typeAsOSType));
+  cf_type = UTCreateStringForOSType(htonl(u.typeAsOSType));
+
+  cf_array = UTTypeCreateAllIdentifiersForTag(kUTTagClassOSType, cf_type, nil);
+  for (index = 0, count = CFArrayGetCount(cf_array); index < count; index++) {
+    CFStringRef cf_uti_identifier = CFArrayGetValueAtIndex(cf_array, index);
+    if (cf2c(cf_uti_identifier, tmp, sizeof(tmp)) != 0) {
+      goto duti_default_app_for_type_cleanup;
+    }
+    printf("identifier: %s\n", tmp);
+
+    cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
+    if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
+      goto duti_default_app_for_type_cleanup;
+    }
+    CFRelease(cf_uti_description); cf_uti_description = NULL;
+    printf("description: %s\n", tmp);
+
+    cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
+    printf("declaration: {\n");
+    CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+    CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+    printf("}\n");
+  }
+
+    /* success */
+    rc = 0;
+
+duti_default_app_for_type_cleanup:
+  if (cf_type != NULL) {
+    CFRelease(cf_type);
+  }
+  return(rc);
+}
+
 int duti_urls_for_url(char *pathOrURL) {
   char        *url;
   CFURLRef    cf_url = NULL;
@@ -653,7 +703,8 @@ int duti_urls_for_url(char *pathOrURL) {
   CFStringRef cf_url_path = NULL;
   CFStringRef cf_error_description = NULL;
   CFErrorRef  cf_error = NULL;
-  CFIndex     count, index;
+  CFIndex     count;
+  CFIndex     index;
   char        tmp[ MAXPATHLEN ];
   int         rc = 2;
 

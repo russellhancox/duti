@@ -33,7 +33,7 @@ int main(int ac, char *av[]) {
   extern int optind;
   extern char *optarg;
 
-  while ((c = getopt(ac, av, "d:e:hl:o:su:Vvx:")) != -1) {
+  while ((c = getopt(ac, av, "d:e:hl:o:st:u:Vvx:")) != -1) {
     switch (c) {
       case 'd': /* show default handler for UTI */
         return (uti_handler_show(optarg, 0));
@@ -55,6 +55,10 @@ int main(int ac, char *av[]) {
 
       case 'o': /* list URLs of applications able to handle file */
         return( duti_urls_for_url( optarg ));
+
+      case 't': /* info for type */
+        return(duti_default_app_for_type(optarg));
+        break;
 
       case 'u': /* UTI declarations */
         return (duti_utis(optarg));
