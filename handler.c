@@ -549,10 +549,12 @@ duti_set_cleanup:
 int duti_default_app_for_extension(char *ext) {
   CFDictionaryRef cf_info_dict = NULL;
   CFStringRef cf_ext = NULL;
+  CFStringRef cf_uti = NULL;
   CFStringRef cf_app_bundle_id = NULL;
   CFStringRef cf_app_name = NULL;
-  CFURLRef cf_app_url = NULL;
-  OSStatus err;
+  CFStringRef cf_error_description = NULL;
+  CFURLRef    cf_app_url = NULL;
+  CFErrorRef  cf_error = NULL;
   char *rext;
   char tmp[MAXPATHLEN];
   int rc = 2;
@@ -570,21 +572,26 @@ int duti_default_app_for_extension(char *ext) {
     return rc;
   }
 
-  err = LSGetApplicationForInfo(kLSUnknownType, kLSUnknownCreator, cf_ext,
-                                kLSRolesAll, NULL, &cf_app_url);
-  if (err != noErr) {
-    fprintf(stderr,
-            "Failed to get default application for "
-            "extension \'%s\'\n",
-            rext);
-    goto duti_extension_cleanup;
-  }
-
-  err = LSCopyDisplayNameForURL(cf_app_url, &cf_app_name);
-  if (err != noErr) {
-    fprintf(stderr, "Failed to get display name\n");
-    goto duti_extension_cleanup;
-  }
+	cf_uti = UTTypeCreatePreferredIdentifierForTag( kUTTagClassFilenameExtension, cf_ext, NULL );
+	if ( cf_uti == NULL ) {
+		fprintf( stderr, "Failed to get default application for extension \'%s\'\n", rext );
+		goto duti_extension_cleanup;
+	}
+	cf_app_url = UTTypeCopyDeclaringBundleURL( cf_uti );
+	if ( cf_app_url == NULL ) {
+		fprintf( stderr, "Failed to get default application for extension \'%s\'\n", rext );
+		goto duti_extension_cleanup;
+	}
+  if ( !CFURLCopyResourcePropertyForKey( cf_app_url, kCFURLLocalizedNameKey, &cf_app_name, &cf_error )) {
+		cf_error_description = CFErrorCopyDescription( cf_error );
+		if ( cf_error_description != NULL ) {
+			if ( cf2c( cf_error_description, tmp, sizeof( tmp )) != 0 ) {
+				goto duti_extension_cleanup;
+			}
+			fprintf( stderr, "Failed to get display name: %s\n", tmp );
+		}
+		goto duti_extension_cleanup;
+	}
   if (cf2c(cf_app_name, tmp, sizeof(tmp)) != 0) {
     goto duti_extension_cleanup;
   }
@@ -619,6 +626,8 @@ duti_extension_cleanup:
   if (cf_ext != NULL) {
     CFRelease(cf_ext);
   }
+  if (cf_uti != NULL) {
+    CFRelease( cf_uti );
   if (cf_app_url != NULL) {
     CFRelease(cf_app_url);
   }
@@ -628,7 +637,10 @@ duti_extension_cleanup:
   if (cf_app_name != NULL) {
     CFRelease(cf_app_name);
   }
-
+  if (cf_error != NULL) {
+    CFRelease(cf_error);
+  }
+  
   return rc;
 }
 
