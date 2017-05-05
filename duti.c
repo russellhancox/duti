@@ -54,7 +54,7 @@ int main(int ac, char *av[]) {
         break;
 
       case 'o': /* list URLs of applications able to handle file */
-        return( duti_urls_for_url( optarg ));
+        return(duti_urls_for_url(optarg));
 
       case 't': /* info for type */
         return(duti_default_app_for_type(optarg));
@@ -106,17 +106,11 @@ int main(int ac, char *av[]) {
   }
 
   if (err) {
-    fprintf(stderr,
-            "usage: %s [ -hvV ] [ -d uti ] [ -l uti ] "
-            "[ settings_path ]\n",
-            av[0]);
-    fprintf(stderr,
-            "usage: %s -s bundle_id { uti | url_scheme } "
-            "[ role ]\n",
-            av[0]);
-    fprintf(stderr, "usage: %s -x extension\n", av[0]);
-    exit(1);
-  }
+  fprintf(stderr, "usage: %s [ -hvV ] [ -d uti ] [ -e ext ] [ -l uti ] [ -o path ] [ -t type ] [ -u uti ] [ -x ext ] [ settings_path ]\n", av[ 0 ]);
+  fprintf(stderr, "usage: %s -s bundle_id url_scheme\n", av[ 0 ]);
+  fprintf(stderr, "usage: %s -s bundle_id uti role\n", av[ 0 ]);
+  exit(1);
+    }
 
   /* by default, read from a FILE stream */
   handler_f = fsethandler;
