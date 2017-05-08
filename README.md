@@ -1,5 +1,5 @@
 # About duti 
-duti is a command-line utility capable of setting default applications for various document types on Mac OS X, using Apple's Uniform Type Identifiers. A UTI is a unique string describing the format of a file's content. For instance, a Microsoft Word document has a UTI of com.microsoft.word.doc. Using duti, the user can change which application acts as the default handler for a given UTI.
+duti is a command-line utility capable of setting default applications for various document types on macOS, using Apple's Uniform Type Identifiers. A UTI is a unique string describing the format of a file's content. For instance, a Microsoft Word document has a UTI of com.microsoft.word.doc. Using duti, the user can change which application acts as the default handler for a given UTI.
 
 
 # Compiling
@@ -14,7 +14,7 @@ duti can read settings from four different sources:
 
 2) a settings file
 
-3) a Mac OS X XML property list (plist)
+3) a MacOS XML property list (plist)
 
 4) command-line arguments.
 
@@ -47,11 +47,9 @@ Get default application information for .jpg files:
 # Support
 duti is best-effort support. You can submit bug reports and feature requests for this version of the software at the duti GitHub project page:
 
-    https://github.com/russellhancox/duti/
+    https://github.com/jovi/duti/
 
-# License
-
-duti is released into the public domain by Andrew Mortensen, 2008. It's provided as is without warranties of any kind. You can do anything you want with it. If you incorporate some or all of the code into another project, I'd appreciate credit for the work I've done, but that's all.
-
-Andrew Mortensen
-October 2008
+# Thanks to
+[Andrew Mortensen](https://github.com/moretension) for creating duti
+[Russel Hancox](https://github.com/russellhancox) for maintaining duti
+[Nivekkagicom](https://github.com/nivekkagicom) for expanding duti
