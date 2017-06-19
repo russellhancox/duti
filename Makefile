@@ -1,4 +1,4 @@
-DUTI_VERSION=1.7
+DUTI_VERSION=1.8
 
 CFLAGS=-g -O2 -Wall \
 			 -isysroot $(shell xcrun --show-sdk-path) \
