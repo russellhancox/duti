@@ -50,6 +50,6 @@ utid is best-effort support. You can submit bug reports and feature requests for
     https://github.com/jovi/utid/
 
 # Thanks to
-[Andrew Mortensen](https://github.com/moretension) for creating utid
-[Russel Hancox](https://github.com/russellhancox) for maintaining utid
+[Andrew Mortensen](https://github.com/moretension) for creating utid  
+[Russel Hancox](https://github.com/russellhancox) for maintaining utid  
 [Nivekkagicom](https://github.com/nivekkagicom) for expanding utid
