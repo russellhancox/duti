@@ -1,9 +1,9 @@
-.TH duti "1" "_DUTI_BUILD_DATE" "Andrew Mortensen" "User Commands"
+.TH utid "1" "_UTID_BUILD_DATE" "Andrew Mortensen" "User Commands"
 .SH NAME
-.B duti
+.B utid
 \- set default document and URL handlers
 .SH SYNOPSIS
-.B duti
+.B utid
 [
 .BI \-hVv
 ] [
@@ -14,7 +14,7 @@
 .I settings_path
 ]
 .sp
-.B duti
+.B utid
 .BI \-s
 .I bundle_id
 {
@@ -30,49 +30,49 @@
 .I role
 ]
 .sp
-.B duti
+.B utid
 .BI \-x\  extension
 .sp
 .SH DESCRIPTION
-.B duti
+.B utid
 sets applications as default handlers for Apple's Uniform Type Identifiers,
 for URL schemes, filename extensions, and MIME types.
-If 
+If
 .I settings_path
 is not given on the command line,
-.B duti
+.B utid
 reads settings lines from stdin. If
 .I settings_path
 is a directory,
-.B duti
+.B utid
 applies settings from the files in
 .IR settings_path .
 .sp
 The
 .BI \-s
 flag tells
-.B duti
+.B utid
 to set a handler based on arguments from the command line. Two arguments
 following
 .BI \-s
 means that
-.B duti
+.B utid
 will set the handler for a URL scheme. Three arguments means
-.B duti
+.B utid
 will set the handler for a UTI, an extension or a MIME type, depending on
 the formatting of the second argument.
-.B duti
+.B utid
 treats an argument beginning with a dot as an extension. If the argument
 contains no dots,
-.B duti
+.B utid
 also considers the argument a filename extension, unless it contains a slash,
 in which case
-.B duti
+.B utid
 treats the argument as a MIME type. In all other cases,
-.B duti
+.B utid
 treats the second argument as a UTI.
 .sp
-.B duti
+.B utid
 .BI \-x
 retrieves and prints out information describing the default application
 for files with the extension
@@ -101,7 +101,7 @@ For example:
 .br
 .sp
 would cause
-.B duti
+.B utid
 to set Safari as the default handler in all situations for HTML documents.
 A settings file can also contain lines with this format:
 .sp
@@ -121,16 +121,16 @@ For example:
 .br
 .sp
 would cause
-.B duti
+.B utid
 to set Firefox as the handler for "ftp://" URLs.
 .SH SETTINGS PLIST
 If the extension of the file given to
-.B duti
+.B utid
 is
 .IR \.plist ,
-.B duti
+.B utid
 treats the file as an XML property list (plist).
-The plist must contain a key-value pair, in which the key is "DUTISettings"
+The plist must contain a key-value pair, in which the key is "UTIDSettings"
 and the value is an array of dictionaries. Each dictionary in the array
 contains three key-value pairs representing the application's bundle ID,
 the UTI and the role, respectively. Alternatively, a dictionary in the array
@@ -148,21 +148,21 @@ would look like this:
 .br
 	<dict>
 .br
-		<key>DUTISettings</key>
+		<key>UTIDSettings</key>
 .br
 		<array>
 .br
 			<dict>
 .br
-				<key>DUTIBundleIdentifier</key>
+				<key>UTIDBundleIdentifier</key>
 .br
 				<string>com.apple.Safari</string>
 .br
-				<key>DUTIUniformTypeIdentifier</key>
+				<key>UTIDUniformTypeIdentifier</key>
 .br
 				<string>public.html</string>
 .br
-				<key>DUTIRole</key>
+				<key>UTIDRole</key>
 .br
 				<string>all</string>
 .br
@@ -170,11 +170,11 @@ would look like this:
 .br
 			<dict>
 .br
-				<key>DUTIBundleIdentifier</key>
+				<key>UTIDBundleIdentifier</key>
 .br
 				<string>org.mozilla.Firefox</string>
 .br
-				<key>DUTIURLScheme</key>
+				<key>UTIDURLScheme</key>
 .br
 				<string>ftp</string>
 .br
@@ -207,7 +207,7 @@ application can execute the item.
 application cannot open the item, but provides an icon for the given UTI.
 .SH EXAMPLES
 Running
-.B duti
+.B utid
 with
 .BI \-s
 :
@@ -215,12 +215,12 @@ with
 .br
 	# Set Safari as the default handler for HTML documents
 .br
-	duti -s com.apple.Safari public.html all
+	utid -s com.apple.Safari public.html all
 .br
 .sp
 	# Set Finder as the default handler for the ftp:// URL scheme
 .br
-	duti -s com.apple.Finder ftp
+	utid -s com.apple.Finder ftp
 .sp
 
 Retrieving default application information for an extension:
@@ -228,7 +228,7 @@ Retrieving default application information for an extension:
 .br
 	# default application information for .html files
 .br
-	% duti -x html
+	% utid -x html
 .br
 	Safari
 .br
@@ -239,8 +239,8 @@ Retrieving default application information for an extension:
 .sp
 
 The following examples can be used by passing them to
-.B duti
-on stdin or as lines in a .duti file.
+.B utid
+on stdin or as lines in a .utid file.
 .sp
 Set TextEdit as the default viewer for Microsoft Word documents:
 .sp

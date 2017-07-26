@@ -1,4 +1,4 @@
-/* duti: set default handlers for document types based on a settings file. */
+/* utid: set default handlers for document types based on a settings file. */
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -39,7 +39,7 @@ int main(int ac, char *av[]) {
         return (uti_handler_show(optarg, 0));
 
       case 'e': /* UTI declarations for extension */
-        return (duti_utis_for_extension(optarg));
+        return (utid_utis_for_extension(optarg));
 
       case 'h': /* help */
       default:
@@ -54,17 +54,17 @@ int main(int ac, char *av[]) {
         break;
 
       case 'o': /* list URLs of applications able to handle file */
-        return(duti_urls_for_url(optarg));
+        return(utid_urls_for_url(optarg));
 
       case 't': /* info for type */
-        return(duti_default_app_for_type(optarg));
+        return(utid_default_app_for_type(optarg));
         break;
 
       case 'u': /* UTI declarations */
-        return (duti_utis(optarg));
+        return (utid_utis(optarg));
 
       case 'V': /* version */
-        printf("%s\n", DUTI_VERSION);
+        printf("%s\n", UTID_VERSION);
         exit(0);
 
       case 'v': /* verbose */
@@ -72,7 +72,7 @@ int main(int ac, char *av[]) {
         break;
 
       case 'x': /* info for extension */
-        return (duti_default_app_for_extension(optarg));
+        return (utid_default_app_for_extension(optarg));
     }
   }
 
@@ -92,12 +92,12 @@ int main(int ac, char *av[]) {
       break;
     case 2: /* set URI handler */
       if (set) {
-        return (duti_handler_set(av[optind], av[optind + 1], NULL));
+        return (utid_handler_set(av[optind], av[optind + 1], NULL));
       }
       /* this fallthrough works because set == 0 */
     case 3: /* set UTI handler */
       if (set) {
-        return (duti_handler_set(av[optind], av[optind + 1], av[optind + 2]));
+        return (utid_handler_set(av[optind], av[optind + 1], av[optind + 2]));
       }
       /* fallthrough to error */
     default: /* error */

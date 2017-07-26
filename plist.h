@@ -1,8 +1,8 @@
 int read_plist(char *, CFDictionaryRef *);
 
 /* plist keys */
-#define DUTI_KEY_SETTINGS CFSTR("DUTISettings")
-#define DUTI_KEY_BUNDLEID CFSTR("DUTIBundleIdentifier")
-#define DUTI_KEY_UTI CFSTR("DUTIUniformTypeIdentifier")
-#define DUTI_KEY_ROLE CFSTR("DUTIRole")
-#define DUTI_KEY_URLSCHEME CFSTR("DUTIURLScheme")
+#define UTID_KEY_SETTINGS CFSTR("UTIDSettings")
+#define UTID_KEY_BUNDLEID CFSTR("UTIDBundleIdentifier")
+#define UTID_KEY_UTI CFSTR("UTIDUniformTypeIdentifier")
+#define UTID_KEY_ROLE CFSTR("UTIDRole")
+#define UTID_KEY_URLSCHEME CFSTR("UTIDURLScheme")
