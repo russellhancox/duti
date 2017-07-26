@@ -21,7 +21,7 @@ int nroles;
 static void dump_cf_array(const void *value, void *context);
 static void dump_cf_dictionary(const void *key, const void *value, void *context);
 
-int duti_is_conformant_uti(CFStringRef uti) {
+int utid_is_conformant_uti(CFStringRef uti) {
   /*
    * this is gross, but the kUTType CFStringRefs aren't constant, so
    * there's no convenient way to make a simple CFStringRef array (not
@@ -51,7 +51,7 @@ int set_uti_handler(CFStringRef bid, CFStringRef type, LSRolesMask mask) {
     strlcpy(ct, "UTI", sizeof(ct));
   }
 
-  if (!duti_is_conformant_uti(type)) {
+  if (!utid_is_conformant_uti(type)) {
     fprintf(stderr, "%s does not conform to any UTI hierarchy\n", ct);
     return 1;
   }
@@ -152,12 +152,12 @@ int fsethandler(char *spath) {
 
     htype = parseline(line, &lineav);
     switch (htype) {
-      case DUTI_TYPE_UTI_HANDLER:
+      case UTID_TYPE_UTI_HANDLER:
         handler = lineav[0];
         type = lineav[1];
         role = lineav[2];
         break;
-      case DUTI_TYPE_URL_HANDLER:
+      case UTID_TYPE_URL_HANDLER:
         handler = lineav[0];
         type = lineav[1];
         break;
@@ -167,10 +167,10 @@ int fsethandler(char *spath) {
         continue;
     }
 
-    if (htype == DUTI_TYPE_UTI_HANDLER) {
-      duti_handler_set(handler, type, role);
-    } else if (htype == DUTI_TYPE_URL_HANDLER) {
-      duti_handler_set(handler, type, NULL);
+    if (htype == UTID_TYPE_UTI_HANDLER) {
+      utid_handler_set(handler, type, role);
+    } else if (htype == UTID_TYPE_URL_HANDLER) {
+      utid_handler_set(handler, type, NULL);
     }
   }
   if (ferror(f)) {
@@ -193,7 +193,7 @@ int psethandler(char *spath) {
   CFIndex count, index;
 
   int rc = 0;
-  int htype = DUTI_TYPE_UTI_HANDLER;
+  int htype = UTID_TYPE_UTI_HANDLER;
   char handler[MAXPATHLEN], type[MAXPATHLEN];
   char crole[255];
 
@@ -212,7 +212,7 @@ int psethandler(char *spath) {
     return 1;
   }
 
-  if ((dharray = CFDictionaryGetValue(plist, DUTI_KEY_SETTINGS)) == NULL) {
+  if ((dharray = CFDictionaryGetValue(plist, UTID_KEY_SETTINGS)) == NULL) {
     fprintf(stderr, "%s is missing the settings array\n", spath);
     CFRelease(plist);
     return 1;
@@ -222,28 +222,28 @@ int psethandler(char *spath) {
   for (index = 0; index < count; index++) {
     dhentry = CFArrayGetValueAtIndex(dharray, index);
 
-    if ((bid = CFDictionaryGetValue(dhentry, DUTI_KEY_BUNDLEID)) == NULL) {
+    if ((bid = CFDictionaryGetValue(dhentry, UTID_KEY_BUNDLEID)) == NULL) {
       fprintf(stderr, "Entry %d missing bundle ID\n", (int)index);
       rc = 1;
       continue;
     }
-    if ((url_scheme = CFDictionaryGetValue(dhentry, DUTI_KEY_URLSCHEME)) !=
+    if ((url_scheme = CFDictionaryGetValue(dhentry, UTID_KEY_URLSCHEME)) !=
         NULL) {
-      htype = DUTI_TYPE_URL_HANDLER;
-    } else if ((uti = CFDictionaryGetValue(dhentry, DUTI_KEY_UTI)) != NULL) {
-      if ((role = CFDictionaryGetValue(dhentry, DUTI_KEY_ROLE)) == NULL) {
+      htype = UTID_TYPE_URL_HANDLER;
+    } else if ((uti = CFDictionaryGetValue(dhentry, UTID_KEY_UTI)) != NULL) {
+      if ((role = CFDictionaryGetValue(dhentry, UTID_KEY_ROLE)) == NULL) {
         fprintf(stderr, "Entry %d missing role\n", (int)index);
         rc = 1;
         continue;
       }
-      htype = DUTI_TYPE_UTI_HANDLER;
+      htype = UTID_TYPE_UTI_HANDLER;
     } else {
       fprintf(stderr, "Entry %d invalid\n", (int)index);
       rc = 1;
       continue;
     }
 
-    if (htype == DUTI_TYPE_UTI_HANDLER) {
+    if (htype == UTID_TYPE_UTI_HANDLER) {
       if (cf2c(bid, handler, sizeof(handler)) != 0) {
         rc = 1;
         continue;
@@ -256,10 +256,10 @@ int psethandler(char *spath) {
         rc = 1;
         continue;
       }
-      if (duti_handler_set(handler, type, crole) != 0) {
+      if (utid_handler_set(handler, type, crole) != 0) {
         rc = 1;
       }
-    } else if (htype == DUTI_TYPE_URL_HANDLER) {
+    } else if (htype == UTID_TYPE_URL_HANDLER) {
       if (cf2c(bid, handler, sizeof(handler)) != 0) {
         rc = 1;
         continue;
@@ -268,7 +268,7 @@ int psethandler(char *spath) {
         rc = 1;
         continue;
       }
-      if (duti_handler_set(handler, type, NULL) != 0) {
+      if (utid_handler_set(handler, type, NULL) != 0) {
         rc = 1;
       }
     }
@@ -358,9 +358,11 @@ int dirsethandler(char *dirpath) {
 }
 
 int uti_handler_show(char *uti, int showall) {
-  CFArrayRef cfhandlers = NULL;
+  CFArrayRef  cfhandlers = NULL;
+  CFArrayRef  cfschemes = NULL;
   CFStringRef cfuti = NULL;
   CFStringRef cfhandler = NULL;
+  CFStringRef cfscheme = NULL;
   char dh[MAXPATHLEN];
   int rc = 0;
   int count, i;
@@ -375,55 +377,89 @@ int uti_handler_show(char *uti, int showall) {
   }
 
   if (showall) {
-    if ((cfhandlers =
-             LSCopyAllRoleHandlersForContentType(cfuti, kLSRolesAll)) == NULL) {
-      if ((cfhandlers = LSCopyAllHandlersForURLScheme(cfuti)) == NULL) {
-        fprintf(stderr, "%s: no handlers\n", uti);
-        rc = 1;
-        goto uti_show_done;
-      }
-    }
-
-    if (verbose) {
-      printf("All handlers for %s:\n", uti);
-    }
-
-    count = CFArrayGetCount(cfhandlers);
-    for (i = 0; i < count; i++) {
-      cfhandler = CFArrayGetValueAtIndex(cfhandlers, i);
-      if (cf2c(cfhandler, dh, sizeof(dh)) != 0) {
-        rc = 2;
-        continue;
-      }
-      printf("%s\n", dh);
-      memset(dh, 0, sizeof(dh));
-    }
-
-    cfhandler = NULL;
-  } else {
-    if ((cfhandler = LSCopyDefaultRoleHandlerForContentType(
-             cfuti, kLSRolesAll)) == NULL) {
-      if ((cfhandler = LSCopyDefaultHandlerForURLScheme(cfuti)) == NULL) {
-        fprintf(stderr, "%s: no default handler\n", uti);
-        rc = 1;
-        goto uti_show_done;
-      }
-    }
-
-    if (cf2c(cfhandler, dh, MAXPATHLEN) != 0) {
-      rc = 2;
+    cfhandlers = LSCopyAllRoleHandlersForContentType(cfuti, kLSRolesAll);
+    cfschemes = LSCopyAllHandlersForURLScheme(cfuti);
+    if ((cfhandlers == NULL) && (cfschemes == NULL)) {
+      fprintf(stderr, "%s: no handlers\n", uti);
+      rc = 1;
       goto uti_show_done;
     }
+    if (cfhandlers) {
+      if (verbose) {
+        printf("All handlers for %s:\n", uti);
+      }
+
+      count = CFArrayGetCount(cfhandlers);
+      for (i = 0; i < count; i++) {
+        cfhandler = CFArrayGetValueAtIndex(cfhandlers, i);
+        if (cf2c(cfhandler, dh, sizeof(dh)) != 0) {
+          rc = 2;
+          continue;
+        }
+        printf("%s\n", dh);
+        memset(dh, 0, sizeof(dh));
+      }
+
+      cfhandler = NULL;
+    }
+
+    if (cfschemes) {
+      if (verbose) {
+        printf("All handlers for scheme %s:\n", uti);
+      }
+
+        count = CFArrayGetCount(cfschemes);
+        for (i = 0; i < count; i++) {
+          cfscheme = CFArrayGetValueAtIndex(cfschemes, i);
+          if (cf2c(cfscheme, dh, sizeof(dh)) != 0) {
+            rc = 2;
+            continue;
+          }
+          printf("%s\n", dh);
+          memset(dh, 0, sizeof(dh));
+        }
+
+        cfscheme = NULL;
+    }
+  } else {
+    cfhandler = LSCopyDefaultRoleHandlerForContentType(cfuti, kLSRolesAll);
+    cfscheme = LSCopyDefaultHandlerForURLScheme(cfuti);
+    if ((cfhandler == NULL) && (cfscheme == NULL)) {
+      fprintf(stderr, "%s: no default handler\n", uti);
+      rc = 1;
+      goto uti_show_done;
+    }
+    if (cfhandler) {
+      if (cf2c(cfhandler, dh, MAXPATHLEN) != 0) {
+        rc = 2;
+        goto uti_show_done;
+      }
 
     if (verbose) {
-      printf("Default handler for %s: ", uti);
-    }
+      printf("Default handler for UTI %s: ", uti);
+      }
     printf("%s\n", dh);
+  }
+
+    if (cfscheme) {
+      if (cf2c(cfscheme, dh, MAXPATHLEN) != 0) {
+        rc = 2;
+        goto uti_show_done;
+      }
+
+      if (verbose) {
+        printf("Default handler for scheme %s: ", uti);
+      }
+      printf("%s\n", dh);
+    }
   }
 
 uti_show_done:
   if (cfhandlers) {
     CFRelease(cfhandlers);
+  }
+  if (cfschemes) {
+    CFRelease(cfschemes);
   }
   if (cfuti) {
     CFRelease(cfuti);
@@ -431,11 +467,14 @@ uti_show_done:
   if (cfhandler) {
     CFRelease(cfhandler);
   }
+  if (cfscheme) {
+    CFRelease(cfscheme);
+  }
 
   return rc;
 }
 
-int duti_handler_set(char *bid, char *type, char *role) {
+int utid_handler_set(char *bid, char *type, char *role) {
   CFStringRef cf_bid = NULL;
   CFStringRef cf_type = NULL;
   CFStringRef tagClass = NULL, preferredUTI = NULL;
@@ -458,9 +497,9 @@ int duti_handler_set(char *bid, char *type, char *role) {
     if (*type == '.') {
       type++;
       if (*type == '\0') {
-        fprintf(stderr, "duti_handler_set: invalid empty type");
+        fprintf(stderr, "utid_handler_set: invalid empty type");
         rc = 2;
-        goto duti_set_cleanup;
+        goto utid_set_cleanup;
       }
       tagClass = kUTTagClassFilenameExtension;
     } else {
@@ -477,7 +516,7 @@ int duti_handler_set(char *bid, char *type, char *role) {
        */
       if (c2cf(type, &cf_type) != 0) {
         rc = 2;
-        goto duti_set_cleanup;
+        goto utid_set_cleanup;
       }
 
       preferredUTI = UTTypeCreatePreferredIdentifierForTag(tagClass, cf_type,
@@ -491,25 +530,25 @@ int duti_handler_set(char *bid, char *type, char *role) {
                 "identifier for type %s",
                 type);
         rc = 2;
-        goto duti_set_cleanup;
+        goto utid_set_cleanup;
       }
     }
   }
   if (c2cf(bid, &cf_bid) != 0) {
     rc = 2;
-    goto duti_set_cleanup;
+    goto utid_set_cleanup;
   }
   if (preferredUTI != NULL) {
     if ((cf_type = CFStringCreateCopy(kCFAllocatorDefault, preferredUTI)) ==
         NULL) {
       fprintf(stderr, "failed to copy preferred UTI");
       rc = 2;
-      goto duti_set_cleanup;
+      goto utid_set_cleanup;
     }
   } else {
     if (c2cf(type, &cf_type) != 0) {
       rc = 1;
-      goto duti_set_cleanup;
+      goto utid_set_cleanup;
     }
   }
 
@@ -525,7 +564,7 @@ int duti_handler_set(char *bid, char *type, char *role) {
     }
   }
 
-duti_set_cleanup:
+utid_set_cleanup:
   if (cf_bid != NULL) {
     CFRelease(cf_bid);
   }
@@ -546,13 +585,15 @@ duti_set_cleanup:
  *
  * http://www.heliumfoot.com/blog/77
  */
-int duti_default_app_for_extension(char *ext) {
+int utid_default_app_for_extension(char *ext) {
   CFDictionaryRef cf_info_dict = NULL;
   CFStringRef cf_ext = NULL;
+  CFStringRef cf_uti = NULL;
   CFStringRef cf_app_bundle_id = NULL;
   CFStringRef cf_app_name = NULL;
-  CFURLRef cf_app_url = NULL;
-  OSStatus err;
+  CFStringRef cf_error_description = NULL;
+  CFURLRef    cf_app_url = NULL;
+  CFErrorRef  cf_error = NULL;
   char *rext;
   char tmp[MAXPATHLEN];
   int rc = 2;
@@ -570,54 +611,62 @@ int duti_default_app_for_extension(char *ext) {
     return rc;
   }
 
-  err = LSGetApplicationForInfo(kLSUnknownType, kLSUnknownCreator, cf_ext,
-                                kLSRolesAll, NULL, &cf_app_url);
-  if (err != noErr) {
-    fprintf(stderr,
-            "Failed to get default application for "
-            "extension \'%s\'\n",
-            rext);
-    goto duti_extension_cleanup;
+  cf_uti = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, cf_ext, NULL);
+  if (cf_uti == NULL) {
+    fprintf(stderr, "Failed to get default application for extension \'%s\'\n", rext);
+    goto utid_extension_cleanup;
   }
-
-  err = LSCopyDisplayNameForURL(cf_app_url, &cf_app_name);
-  if (err != noErr) {
-    fprintf(stderr, "Failed to get display name\n");
-    goto duti_extension_cleanup;
+  cf_app_url = UTTypeCopyDeclaringBundleURL(cf_uti);
+  if (cf_app_url == NULL) {
+    fprintf(stderr, "Failed to get default application for extension \'%s\'\n", rext);
+    goto utid_extension_cleanup;
+  }
+  if (!CFURLCopyResourcePropertyForKey(cf_app_url, kCFURLLocalizedNameKey, &cf_app_name, &cf_error)) {
+    cf_error_description = CFErrorCopyDescription(cf_error);
+    if (cf_error_description != NULL) {
+      if (cf2c(cf_error_description, tmp, sizeof(tmp)) != 0) {
+        goto utid_extension_cleanup;
+      }
+      fprintf(stderr, "Failed to get display name: %s\n", tmp);
+    }
+    goto utid_extension_cleanup;
   }
   if (cf2c(cf_app_name, tmp, sizeof(tmp)) != 0) {
-    goto duti_extension_cleanup;
+    goto utid_extension_cleanup;
   }
   printf("%s\n", tmp);
 
   if (cfurl2path(cf_app_url, tmp, sizeof(tmp)) != 0) {
-    goto duti_extension_cleanup;
+    goto utid_extension_cleanup;
   }
   printf("%s\n", tmp);
 
   cf_info_dict = CFBundleCopyInfoDictionaryInDirectory(cf_app_url);
   if (cf_info_dict == NULL) {
     fprintf(stderr, "Failed to copy info dictionary from %s\n", tmp);
-    goto duti_extension_cleanup;
+    goto utid_extension_cleanup;
   }
 
   cf_app_bundle_id = CFDictionaryGetValue(cf_info_dict, kCFBundleIdentifierKey);
   if (cf_app_bundle_id == NULL) {
     fprintf(stderr, "Failed to get bundle identifier for %s\n", tmp);
-    goto duti_extension_cleanup;
+    goto utid_extension_cleanup;
   }
 
   if (cf2c(cf_app_bundle_id, tmp, sizeof(tmp)) != 0) {
-    goto duti_extension_cleanup;
+    goto utid_extension_cleanup;
   }
   printf("%s\n", tmp);
 
   /* success */
   rc = 0;
 
-duti_extension_cleanup:
+utid_extension_cleanup:
   if (cf_ext != NULL) {
     CFRelease(cf_ext);
+  }
+  if (cf_uti != NULL) {
+    CFRelease(cf_uti);
   }
   if (cf_app_url != NULL) {
     CFRelease(cf_app_url);
@@ -625,19 +674,213 @@ duti_extension_cleanup:
   if (cf_info_dict != NULL) {
     CFRelease(cf_info_dict);
   }
+  if (cf_error_description != NULL) {
+    CFRelease(cf_error_description);
+  }
   if (cf_app_name != NULL) {
     CFRelease(cf_app_name);
+  }
+  if (cf_error != NULL) {
+    CFRelease(cf_error);
   }
 
   return rc;
 }
 
-int duti_utis(char *uti) {
-  CFStringRef cf_uti_identifier = NULL;
-  CFStringRef cf_uti_description = NULL;
+int utid_default_app_for_type(char *osType) {
+  union {
+    OSType  typeAsOSType;
+    char    typeAsString[4];
+  } u;
+  CFStringRef     cf_type = NULL;
+  CFArrayRef      cf_array = NULL;
+  CFStringRef     cf_uti_description = NULL;
   CFDictionaryRef cf_uti_declaration = NULL;
-  char tmp[MAXPATHLEN];
-  int rc = 2;
+  CFIndex         index;
+  CFIndex         count;
+  char            tmp[MAXPATHLEN];
+  int             rc = 2;
+
+  u.typeAsOSType = 0;
+  strncpy(u.typeAsString, osType, sizeof(u.typeAsOSType));
+  cf_type = UTCreateStringForOSType(htonl(u.typeAsOSType));
+
+  cf_array = UTTypeCreateAllIdentifiersForTag(kUTTagClassOSType, cf_type, nil);
+    for (index = 0, count = CFArrayGetCount(cf_array); index < count; index++) {
+      CFStringRef cf_uti_identifier = CFArrayGetValueAtIndex(cf_array, index);
+      if (cf2c(cf_uti_identifier, tmp, sizeof(tmp)) != 0) {
+        goto utid_default_app_for_type_cleanup;
+      }
+      printf("identifier: %s\n", tmp);
+
+      cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
+      if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
+      goto utid_default_app_for_type_cleanup;
+      }
+      CFRelease(cf_uti_description); cf_uti_description = NULL;
+      printf("description: %s\n", tmp);
+
+      cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
+      printf("declaration: {\n");
+      CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+      CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+      printf("}\n");
+    }
+
+  /* success */
+  rc = 0;
+
+utid_default_app_for_type_cleanup:
+  if (cf_type != NULL) {
+    CFRelease(cf_type);
+  }
+  return rc;
+}
+
+int utid_urls_for_url(char *pathOrURL) {
+  char        *url;
+  CFURLRef    cf_url = NULL;
+  CFURLRef    cf_url_default = NULL;
+  CFURLRef    cf_other_url = NULL;
+  CFArrayRef  cf_urls = NULL;
+  CFStringRef cf_url_path = NULL;
+  CFStringRef cf_error_description = NULL;
+  CFErrorRef  cf_error = NULL;
+  CFIndex     count;
+  CFIndex     index;
+  char        tmp[MAXPATHLEN];
+  int         rc = 2;
+
+  url = pathOrURL;
+  if (strncmp(pathOrURL, "file://", 7) != 0) {
+    url = tmp;
+    strncpy(url, "file://", MAXPATHLEN);
+    if (strncmp(pathOrURL, "/", 1) != 0) {
+      getcwd(url + 7, MAXPATHLEN - 7);
+      url[MAXPATHLEN - 1] = '\0';
+    }
+    count = strlen(url);
+    strncat(url, "/", MAXPATHLEN - count);
+    if (count < MAXPATHLEN) {
+    count++;
+    }
+    strncpy(url + count, pathOrURL, MAXPATHLEN - count);
+    url[MAXPATHLEN - 1] = '\0';
+  }
+
+  cf_url = CFURLCreateAbsoluteURLWithBytes(kCFAllocatorDefault, (UInt8*) url, strlen(url), kCFStringEncodingUTF8, NULL, TRUE);
+    if (cf_url == NULL) {
+      goto utid_urls_for_url_cleanup;
+    }
+
+  cf_url_default = LSCopyDefaultApplicationURLForURL(cf_url, kLSRolesAll, &cf_error);
+    if (cf_url_default == NULL) {
+      cf_error_description = CFErrorCopyDescription(cf_error);
+      if (cf_error_description != NULL) {
+        if (cf2c(cf_error_description, tmp, sizeof(tmp)) != 0) {
+          goto utid_urls_for_url_cleanup;
+        }
+      fprintf(stderr, "%s\n", tmp);
+      }
+      goto utid_urls_for_url_cleanup;
+    }
+
+  cf_url_path = CFURLGetString(cf_url_default);
+    if (cf2c(cf_url_path, tmp, sizeof(tmp)) != 0) {
+      goto utid_urls_for_url_cleanup;
+    }
+    printf("default:\n");
+    printf("%s\n", tmp);
+
+  cf_urls = LSCopyApplicationURLsForURL(cf_url, kLSRolesEditor);
+  if (cf_urls != NULL) {
+    printf("\neditor:\n");
+    count = CFArrayGetCount(cf_urls);
+    for (index = 0; index < count; index++) {
+      cf_other_url = CFArrayGetValueAtIndex(cf_urls, index);
+      cf_url_path = CFURLGetString(cf_other_url);
+      if (cf2c(cf_url_path, tmp, sizeof(tmp)) != 0) {
+        goto utid_urls_for_url_cleanup;
+      }
+      printf("%s\n", tmp);
+    }
+    CFRelease(cf_urls); cf_urls = NULL;
+  }
+
+  cf_urls = LSCopyApplicationURLsForURL(cf_url, kLSRolesViewer);
+    if (cf_urls != NULL) {
+      printf("\nviewer:\n");
+      count = CFArrayGetCount(cf_urls);
+      for (index = 0; index < count; index++) {
+        cf_other_url = CFArrayGetValueAtIndex(cf_urls, index);
+        cf_url_path = CFURLGetString(cf_other_url);
+        if (cf2c(cf_url_path, tmp, sizeof(tmp)) != 0) {
+          goto utid_urls_for_url_cleanup;
+        }
+        printf("%s\n", tmp);
+      }
+      CFRelease(cf_urls); cf_urls = NULL;
+    }
+
+  cf_urls = LSCopyApplicationURLsForURL(cf_url, kLSRolesShell);
+    if (cf_urls != NULL) {
+      printf("\nshell:\n");
+      count = CFArrayGetCount(cf_urls);
+      for (index = 0; index < count; index++) {
+        cf_other_url = CFArrayGetValueAtIndex(cf_urls, index);
+        cf_url_path = CFURLGetString(cf_other_url);
+          if (cf2c(cf_url_path, tmp, sizeof(tmp)) != 0) {
+            goto utid_urls_for_url_cleanup;
+          }
+        printf("%s\n", tmp);
+      }
+      CFRelease(cf_urls); cf_urls = NULL;
+    }
+
+  cf_urls = LSCopyApplicationURLsForURL(cf_url, kLSRolesNone);
+    if (cf_urls != NULL) {
+      printf("\nnone:\n");
+      count = CFArrayGetCount(cf_urls);
+      for (index = 0; index < count; index++) {
+        cf_other_url = CFArrayGetValueAtIndex(cf_urls, index);
+        cf_url_path = CFURLGetString(cf_other_url);
+        if (cf2c(cf_url_path, tmp, sizeof(tmp)) != 0) {
+          goto utid_urls_for_url_cleanup;
+        }
+        printf("%s\n", tmp);
+      }
+      CFRelease(cf_urls); cf_urls = NULL;
+    }
+
+  /* success */
+  rc = 0;
+
+utid_urls_for_url_cleanup:
+  if (cf_url != NULL) {
+    CFRelease(cf_url);
+  }
+  if (cf_url_default != NULL) {
+    CFRelease(cf_url_default);
+  }
+  if (cf_urls != NULL) {
+    CFRelease(cf_urls);
+  }
+  if (cf_error_description != NULL) {
+    CFRelease(cf_error_description);
+  }
+  if (cf_error != NULL) {
+    CFRelease(cf_error);
+  }
+
+  return rc;
+}
+
+int utid_utis(char *uti) {
+  CFStringRef     cf_uti_identifier = NULL;
+  CFStringRef     cf_uti_description = NULL;
+  CFDictionaryRef cf_uti_declaration = NULL;
+  char            tmp[MAXPATHLEN];
+  int             rc = 2;
 
   if (uti == NULL) {
     fprintf(stderr, "Invalid UTI.\n");
@@ -649,24 +892,22 @@ int duti_utis(char *uti) {
   }
 
   cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
-  if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
-    goto duti_utis_cleanup;
-  }
-  CFRelease(cf_uti_description);
-  cf_uti_description = NULL;
-  printf("description: %s\n", tmp);
+    if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
+      goto utid_utis_cleanup;
+    }
+    CFRelease(cf_uti_description); cf_uti_description = NULL;
+    printf("description: %s\n", tmp);
 
   cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
-  printf("declaration: {\n");
-  CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
-  CFRelease(cf_uti_declaration);
-  cf_uti_declaration = NULL;
-  printf("}\n");
+    printf("declaration: {\n");
+    CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+    CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+    printf("}\n");
 
   /* success */
   rc = 0;
 
-duti_utis_cleanup:
+utid_utis_cleanup:
   if (cf_uti_identifier) {
     CFRelease(cf_uti_identifier);
   }
@@ -680,16 +921,16 @@ duti_utis_cleanup:
   return rc;
 }
 
-int duti_utis_for_extension(char *ext) {
-  CFStringRef cf_ext = NULL;
-  CFArrayRef cf_array = NULL;
-  CFStringRef cf_uti_description = NULL;
+int utid_utis_for_extension(char *ext) {
+  CFStringRef     cf_ext = NULL;
+  CFArrayRef      cf_array = NULL;
+  CFStringRef     cf_uti_description = NULL;
   CFDictionaryRef cf_uti_declaration = NULL;
-  CFIndex index;
-  CFIndex count;
-  char *rext;
-  char tmp[MAXPATHLEN];
-  int rc = 2;
+  CFIndex         index;
+  CFIndex         count;
+  char            *rext;
+  char            tmp[MAXPATHLEN];
+  int             rc = 2;
 
   if ((rext = strrchr(ext, '.')) == NULL) {
     rext = ext;
@@ -704,35 +945,32 @@ int duti_utis_for_extension(char *ext) {
     return rc;
   }
 
-  cf_array = UTTypeCreateAllIdentifiersForTag(kUTTagClassFilenameExtension,
-                                              cf_ext, nil);
-  for (index = 0, count = CFArrayGetCount(cf_array); index < count; index++) {
-    CFStringRef cf_uti_identifier = CFArrayGetValueAtIndex(cf_array, index);
-    if (cf2c(cf_uti_identifier, tmp, sizeof(tmp)) != 0) {
-      goto duti_utis_cleanup;
-    }
-    printf("identifier: %s\n", tmp);
+  cf_array = UTTypeCreateAllIdentifiersForTag(kUTTagClassFilenameExtension, cf_ext, nil);
+    for (index = 0, count = CFArrayGetCount(cf_array); index < count; index++) {
+      CFStringRef cf_uti_identifier = CFArrayGetValueAtIndex(cf_array, index);
+      if (cf2c(cf_uti_identifier, tmp, sizeof(tmp)) != 0) {
+        goto utid_utis_cleanup;
+      }
+      printf("identifier: %s\n", tmp);
 
-    cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
-    if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
-      goto duti_utis_cleanup;
-    }
-    CFRelease(cf_uti_description);
-    cf_uti_description = NULL;
-    printf("description: %s\n", tmp);
+      cf_uti_description = UTTypeCopyDescription(cf_uti_identifier);
+        if (cf2c(cf_uti_description, tmp, sizeof(tmp)) != 0) {
+          goto utid_utis_cleanup;
+        }
+      CFRelease(cf_uti_description); cf_uti_description = NULL;
+      printf("description: %s\n", tmp);
 
-    cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
-    printf("declaration: {\n");
-    CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
-    CFRelease(cf_uti_declaration);
-    cf_uti_declaration = NULL;
-    printf("}\n");
-  }
+      cf_uti_declaration = UTTypeCopyDeclaration(cf_uti_identifier);
+      printf("declaration: {\n");
+      CFDictionaryApplyFunction(cf_uti_declaration, dump_cf_dictionary, "\t");
+      CFRelease(cf_uti_declaration); cf_uti_declaration = NULL;
+      printf("}\n");
+    }
 
   /* success */
   rc = 0;
 
-duti_utis_cleanup:
+utid_utis_cleanup:
   if (cf_ext != NULL) {
     CFRelease(cf_ext);
   }
@@ -750,48 +988,46 @@ duti_utis_cleanup:
 }
 
 static void dump_cf_array(const void *value, void *context) {
-  CFTypeID typeID;
-  char tmp[MAXPATHLEN];
+  CFTypeID  typeID;
+  char      tmp[MAXPATHLEN];
 
   typeID = CFGetTypeID(value);
-  if (typeID == CFStringGetTypeID()) {
-    if (cf2c(value, tmp, sizeof(tmp)) != 0) {
+    if (typeID == CFStringGetTypeID()) {
+      if (cf2c(value, tmp, sizeof(tmp)) != 0) {
       return;
+      }
+      printf("%s%s\n", (char *) context, tmp);
+    } else {
+      printf("%sunhandled value\n", (char *) context);
     }
-    printf("%s%s\n", (char *)context, tmp);
-  } else {
-    printf("%sunhandled value\n", (char *)context);
-  }
 }
 
-static void dump_cf_dictionary(const void *key, const void *value,
-                               void *context) {
-  CFTypeID typeID;
-  char tmp[MAXPATHLEN];
+static void dump_cf_dictionary(const void *key, const void *value, void *context) {
+  CFTypeID  typeID;
+  char      tmp[MAXPATHLEN];
 
   if (cf2c(key, tmp, sizeof(tmp)) != 0) {
     return;
   }
-  printf("%s%s = ", (char *)context, tmp);
+  printf("%s%s = ", (char *) context, tmp);
 
   typeID = CFGetTypeID(value);
-  if (typeID == CFStringGetTypeID()) {
-    if (cf2c(value, tmp, sizeof(tmp)) != 0) {
-      return;
-    }
+    if (typeID == CFStringGetTypeID()) {
+      if (cf2c(value, tmp, sizeof(tmp)) != 0) {
+        return;
+      }
     printf("%s\n", tmp);
-  } else if (typeID == CFArrayGetTypeID()) {
-    printf("[\n");
-    sprintf(tmp, "%s\t", (char *)context);
-    CFArrayApplyFunction(value, CFRangeMake(0, CFArrayGetCount(value)),
-                         dump_cf_array, tmp);
-    printf("%s]\n", (char *)context);
-  } else if (typeID == CFDictionaryGetTypeID()) {
-    printf("{\n");
-    sprintf(tmp, "%s\t", (char *)context);
-    CFDictionaryApplyFunction(value, dump_cf_dictionary, tmp);
-    printf("%s}\n", (char *)context);
-  } else {
-    printf("unhandled key\n");
-  }
+    } else if (typeID == CFArrayGetTypeID()) {
+      printf("[\n");
+      sprintf(tmp, "%s\t", (char *) context);
+      CFArrayApplyFunction(value, CFRangeMake(0, CFArrayGetCount(value)), dump_cf_array, tmp);
+      printf("%s]\n", (char *) context);
+    } else if (typeID == CFDictionaryGetTypeID()) {
+      printf("{\n");
+      sprintf(tmp, "%s\t", (char *) context);
+      CFDictionaryApplyFunction(value, dump_cf_dictionary, tmp);
+      printf("%s}\n", (char *) context);
+    } else {
+      printf("unhandled key\n");
+    }
 }

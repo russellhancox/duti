@@ -1,9 +1,9 @@
-DUTI_VERSION=1.7
+UTID_VERSION=1.8.1
 
 CFLAGS=-g -O2 -Wall \
 			 -isysroot $(shell xcrun --show-sdk-path) \
 			 -mmacosx-version-min=10.9 \
-			 -DDUTI_VERSION='"${DUTI_VERSION}"'
+			 -DUTID_VERSION='"${UTID_VERSION}"'
 FRAMEWORKS=-framework ApplicationServices -framework CoreFoundation
 
 PB_ARGS=--ownership preserve --quiet
@@ -11,9 +11,9 @@ PB_ARGS=--ownership preserve --quiet
 BINDIR=/usr/local/bin
 MANDIR=/usr/local/share/man/man1
 
-all: duti duti.1
+all: utid utid.1
 
-duti: duti.o handler.o plist.o util.o
+utid: utid.o handler.o plist.o util.o
 	@echo "[LD] ${@}"
 	@${CC} ${CFLAGS} ${FRAMEWORKS} -o $@ $^
 
@@ -24,26 +24,26 @@ duti: duti.o handler.o plist.o util.o
 install: all
 	@-mkdir -p ${BINDIR}
 	@-mkdir -p ${MANDIR}
-	install -m 0755 -c duti ${BINDIR}
-	install -m 0644 -c duti.1 ${MANDIR}
-	@sed -i '' -e 's@_DUTI_BUILD_DATE@$(shell date '+%B %d, %Y')@g' ${MANDIR}/duti.1
+	install -m 0755 -c utid ${BINDIR}
+	install -m 0644 -c utid.1 ${MANDIR}
+	@sed -i '' -e 's@_UTID_BUILD_DATE@$(shell date '+%B %d, %Y')@g' ${MANDIR}/utid.1
 
 pkg: package
 package: all
 	@mkdir -p -m 0755 pkg/${BINDIR} pkg/${MANDIR}
-	@install -m 0755 -c duti pkg/${BINDIR}
-	@install -m 0644 -c duti.1 pkg/${MANDIR}
-	@sed -i '' -e 's@_DUTI_BUILD_DATE@$(shell date '+%B %d, %Y')@g' pkg/${MANDIR}/duti.1
+	@install -m 0755 -c utid pkg/${BINDIR}
+	@install -m 0644 -c utid.1 pkg/${MANDIR}
+	@sed -i '' -e 's@_UTID_BUILD_DATE@$(shell date '+%B %d, %Y')@g' pkg/${MANDIR}/utid.1
 	@sudo chown -R root:wheel pkg
 	/usr/bin/pkgbuild \
 		${PB_ARGS} \
 		--root pkg \
-		--identifier public-domain.mortensen.duti-installer \
-		--version ${DUTI_VERSION} \
-		duti-${DUTI_VERSION}.pkg
+		--identifier public-domain.mortensen.utid-installer \
+		--version ${UTID_VERSION} \
+		utid-${UTID_VERSION}.pkg
 	@sudo rm -rf pkg
 
 clean:
 	rm -f *.o
-	rm -f duti
-	rm -f duti-*.pkg
+	rm -f utid
+	rm -f utid-*.pkg
