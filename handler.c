@@ -687,7 +687,7 @@ duti_extension_cleanup:
   return rc;
 }
 
-duti_default_app_for_type(char *osType) {
+int duti_default_app_for_type(char *osType) {
   union {
     OSType  typeAsOSType;
     char    typeAsString[4];
